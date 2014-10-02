@@ -24,6 +24,8 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display the current stack backtrace", mon_backtrace },
+	{ "rainbow", "Display a rainbow of colorful text", mon_rainbow },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -58,7 +60,65 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+	cprintf("Stack backtrace:\n");
+
+	int* stackbase = (int*)read_ebp();
+	while (stackbase != NULL)
+	{
+		int next_stackbase = stackbase[0];
+		int eip = stackbase[1];
+		int arg0 = stackbase[2];
+		int arg1 = stackbase[3];
+		int arg2 = stackbase[4];
+		int arg3 = stackbase[5];
+		int arg4 = stackbase[6];
+		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", stackbase, eip, arg0, arg1, arg2, arg3, arg4);
+
+		struct Eipdebuginfo info;
+		debuginfo_eip(eip, &info);
+		int offset = (eip - info.eip_fn_addr);
+		cprintf("         %s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, offset);
+
+		stackbase = (int*)next_stackbase;
+	}
+
+	return 0;
+}
+
+int
+mon_rainbow(int argc, char **argv, struct Trapframe *tf)
+{
+	int colors[] = { 0, 1, 3, 2, 6, 4, 5, 7 };
+	int height = 16;
+	int width = 60;
+
+	int y;
+	int x;
+
+	cprintf("/");
+	for (x = 0; x < width; x++)
+	{
+		cprintf("-");
+	}
+	cprintf("\\\n");
+
+	for (y = 0; y < height; y++)
+	{
+		cprintf("|");
+		for (x = 0; x < width; x++)
+		{
+			cprintf("\033[%d;3%d;4%dmO", (x%2), colors[(y+x)%8], colors[((y+x)/8)%8]);
+		}
+		cprintf("\033[0m|\n");
+	}
+
+	cprintf("\\");
+	for (x = 0; x < width; x++)
+	{
+		cprintf("-");
+	}
+	cprintf("/\n");
+
 	return 0;
 }
 
