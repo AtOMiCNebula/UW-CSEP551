@@ -25,6 +25,7 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display the current stack backtrace", mon_backtrace },
+	{ "rainbow", "Display a rainbow of colorful text", mon_rainbow },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -80,6 +81,43 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 
 		stackbase = (int*)next_stackbase;
 	}
+
+	return 0;
+}
+
+int
+mon_rainbow(int argc, char **argv, struct Trapframe *tf)
+{
+	int colors[] = { 0, 1, 3, 2, 6, 4, 5, 7 };
+	int height = 16;
+	int width = 60;
+
+	int y;
+	int x;
+
+	cprintf("/");
+	for (x = 0; x < width; x++)
+	{
+		cprintf("-");
+	}
+	cprintf("\\\n");
+
+	for (y = 0; y < height; y++)
+	{
+		cprintf("|");
+		for (x = 0; x < width; x++)
+		{
+			cprintf("\033[%d;3%d;4%dmO", (x%2), colors[(y+x)%8], colors[((y+x)/8)%8]);
+		}
+		cprintf("\033[0m|\n");
+	}
+
+	cprintf("\\");
+	for (x = 0; x < width; x++)
+	{
+		cprintf("-");
+	}
+	cprintf("/\n");
 
 	return 0;
 }
