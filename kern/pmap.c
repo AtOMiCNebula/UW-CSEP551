@@ -88,18 +88,25 @@ boot_alloc(uint32_t n)
 	// which points to the end of the kernel's bss segment:
 	// the first virtual address that the linker did *not* assign
 	// to any kernel code or global variables.
-	if (!nextfree) {
-		extern char end[];
+	extern char end[];
+  if (!nextfree) {
 		nextfree = ROUNDUP((char *) end, PGSIZE);
 	}
 
-	// Allocate a chunk large enough to hold 'n' bytes, then update
-	// nextfree.  Make sure nextfree is kept aligned
-	// to a multiple of PGSIZE.
-	//
-	// LAB 2: Your code here.
+  // Allocate a chunk large enough to hold 'n' bytes, then update
+  // nextfree.  Make sure nextfree is kept aligned
+  // to a multiple of PGSIZE.
+  //
+  // LAB 2: Your code here.
 
-	return NULL;
+  if (nextfree + n > end + (npages * PGSIZE)) {
+    panic("Failure to allocate boot memory");
+  }
+
+  result = nextfree;
+  nextfree += n;
+
+	return result;
 }
 
 // Set up a two-level page table:
@@ -121,7 +128,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	// panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -143,6 +150,7 @@ mem_init(void)
 	// each physical page, there is a corresponding struct PageInfo in this
 	// array.  'npages' is the number of physical pages in memory.
 	// Your code goes here:
+  pages = (struct PageInfo*)boot_alloc(npages * sizeof(struct PageInfo));
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -220,6 +228,11 @@ mem_init(void)
 // Pages are reference counted, and free pages are kept on a linked list.
 // --------------------------------------------------------------
 
+void printPageInfo(struct PageInfo* page) {
+  cprintf("Allocating page at: pa: %08x, va: %08x\n",
+    page2pa(page), page2kva(page));
+}
+
 //
 // Initialize page structure and memory free list.
 // After this is done, NEVER use boot_alloc again.  ONLY use the page
@@ -252,6 +265,24 @@ page_init(void)
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
 	}
+
+  // Mark page 0 as used.
+  pages[0].pp_ref = 1;
+
+  // Mark IO hole as allocated. Note: the list goes bloody backwards!
+  struct PageInfo* page;
+  for (page = pa2page(EXTPHYSMEM-1); page2pa(page) >= IOPHYSMEM; page = page->pp_link) {
+    page->pp_ref = 1;
+    printPageInfo(page);
+  }
+
+  // Mark kernel as allocated.
+  void* top = boot_alloc(0);
+  for (page = pa2page(PADDR(top)); (page2pa(page) > 0) && (page->pp_link != 0); page = page->pp_link) {
+    page->pp_ref = 1;
+    printPageInfo(page);
+  }
+    printPageInfo(page);
 }
 
 //
