@@ -96,10 +96,18 @@ boot_alloc(uint32_t n)
 	// Allocate a chunk large enough to hold 'n' bytes, then update
 	// nextfree.  Make sure nextfree is kept aligned
 	// to a multiple of PGSIZE.
-	//
-	// LAB 2: Your code here.
+	result = nextfree;
+	if (n > 0) {
+		nextfree = ROUNDUP(nextfree + n, PGSIZE);
 
-	return NULL;
+		// Check for Out Of Memory
+		extern char end[];
+		if (nextfree >= (end + (npages * PGSIZE))) {
+			panic("boot_alloc: Out of Memory");
+		}
+	}
+
+	return result;
 }
 
 // Set up a two-level page table:
