@@ -275,12 +275,22 @@ page_init(void)
 //
 // Returns NULL if out of free memory.
 //
-// Hint: use page2kva and memset
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	return 0;
+	struct PageInfo* result = NULL;
+	if (page_free_list) {
+		assert(page_free_list->pp_ref == 0);
+
+		result = page_free_list;
+		page_free_list = result->pp_link;
+		result->pp_link = NULL;
+
+		if (alloc_flags & ALLOC_ZERO) {
+			memset(page2kva(result), 0, PGSIZE);
+		}
+	}
+	return result;
 }
 
 //
@@ -290,7 +300,10 @@ page_alloc(int alloc_flags)
 void
 page_free(struct PageInfo *pp)
 {
-	// Fill this function in
+	assert(pp->pp_ref == 0);
+
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
 }
 
 //
