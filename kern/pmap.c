@@ -98,6 +98,10 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	result = nextfree;
 	if (n > 0) {
+		if (pages) {
+			panic("boot_alloc: Called after initialization");
+		}
+
 		nextfree = ROUNDUP(nextfree + n, PGSIZE);
 
 		// Check for Out Of Memory
@@ -128,9 +132,6 @@ mem_init(void)
 	// Find out how much memory the machine has (npages & npages_basemem).
 	i386_detect_memory();
 
-	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
-
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
@@ -150,8 +151,8 @@ mem_init(void)
 	// The kernel uses this array to keep track of physical pages: for
 	// each physical page, there is a corresponding struct PageInfo in this
 	// array.  'npages' is the number of physical pages in memory.
-	// Your code goes here:
-
+	pages = (struct PageInfo*) boot_alloc(npages * sizeof(struct PageInfo));
+	memset(pages, 0, (npages * sizeof(struct PageInfo)));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -250,15 +251,19 @@ page_init(void)
 	//     Some of it is in use, some is free. Where is the kernel
 	//     in physical memory?  Which pages are already in use for
 	//     page tables and other data structures?
-	//
-	// Change the code to reflect this.
-	// NB: DO NOT actually touch the physical memory corresponding to
-	// free pages!
+	size_t pageStartAt = PGNUM(IOPHYSMEM);
+	size_t pageStopAt = PGNUM(PADDR(pages) + (npages * sizeof(struct PageInfo)));
+
 	size_t i;
 	for (i = 0; i < npages; i++) {
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		bool pinned = (i == 0 || (pageStartAt <= i && i <= pageStopAt));
+
+		pages[i].pp_ref = pinned;
+		if (!pinned) {
+			// Only add to free list if we're not pinned!
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+		}
 	}
 }
 
