@@ -1,0 +1,14 @@
+CSE P 551: Operating Systems (Autumn 2014)
+Jeff Weiner (jdweiner@cs.washington.edu)
+October 15th, 2014
+
+
+1.  Assuming that the following JOS kernel code is correct, what type should
+    variable x have, uintptr_t or physaddr_t?
+        mystery_t x;
+        char* value = return_a_pointer();
+        *value = 10;
+        x = (mystery_t) value;
+
+uintptr_t.  Given that we set the memory at *value to the value 10, and the MMU
+always operates on virtual addresses, mystery_t must be virtual too.
