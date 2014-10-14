@@ -118,14 +118,14 @@ boot_alloc(uint32_t n)
 static const bool doDebugPrint = false;
 
 void dprint(const char* fmt, ...) {
-  if (!doDebugPrint) {
-    return;
-  }
+	if (!doDebugPrint) {
+		return;
+	}
 
-  va_list argp;
-  va_start(argp, fmt);
-  cprintf(fmt, argp);
-  va_end(argp);
+	va_list argp;
+	va_start(argp, fmt);
+	cprintf(fmt, argp);
+	va_end(argp);
 }
 
 
@@ -273,12 +273,12 @@ page_init(void)
 	for (i = 0; i < npages; i++) {
 		bool pinned = (i == 0 || (pageStartAt <= i && i < pageStopAt));
 
-    pages[i].pp_ref = pinned;
-    if (!pinned) {
-      // Only add to free list if we're not pinned!
-      pages[i].pp_link = page_free_list;
-      page_free_list = &pages[i];
-    }
+		pages[i].pp_ref = pinned;
+		if (!pinned) {
+			// Only add to free list if we're not pinned!
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+		}
 	}
 }
 
@@ -301,7 +301,7 @@ page_alloc(int alloc_flags)
 		page_free_list = result->pp_link;
 		result->pp_link = NULL;
 
-    dprint("Allocated page at %08x\n", page2pa(result));
+		dprint("Allocated page at %08x\n", page2pa(result));
 		if (alloc_flags & ALLOC_ZERO) {
 			memset(page2kva(result), 0, PGSIZE);
 		}
@@ -318,7 +318,7 @@ page_free(struct PageInfo *pp)
 {
 	assert(pp->pp_ref == 0);
 
-  dprint("Freed page at %08x\n", page2pa(pp));
+	dprint("Freed page at %08x\n", page2pa(pp));
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
 }
@@ -359,36 +359,36 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-  pde_t* dirEntry = &(pgdir[PDX(va)]);
-  if (*dirEntry == 0) {
-    if (!create) {
-      return NULL;
-    }
+	pde_t* dirEntry = &(pgdir[PDX(va)]);
+	if (*dirEntry == 0) {
+		if (!create) {
+			return NULL;
+		}
 
-    struct PageInfo* newTable = page_alloc(ALLOC_ZERO);
-    if (newTable == NULL) {
-      return NULL;
-    }
+		struct PageInfo* newTable = page_alloc(ALLOC_ZERO);
+		if (newTable == NULL) {
+			return NULL;
+		}
 
-    ++(newTable->pp_ref);
-    *dirEntry = page2pa(newTable) | PTE_P | PTE_W | PTE_U | PTE_PWT | PTE_PCD;
-  }
+		++(newTable->pp_ref);
+		*dirEntry = page2pa(newTable) | PTE_P | PTE_W | PTE_U | PTE_PWT | PTE_PCD;
+	}
 
-  // Now, to find the entry, we need the PA pointer to the start of the table...
-  uintptr_t tableBase = PTE_ADDR(*dirEntry);
+	// Now, to find the entry, we need the PA pointer to the start of the table...
+	uintptr_t tableBase = PTE_ADDR(*dirEntry);
 
-  // ... which we can turn into a page number ...
-  struct PageInfo* page = pa2page(tableBase);
+	// ... which we can turn into a page number ...
+	struct PageInfo* page = pa2page(tableBase);
 
-  // which we can turn into a virtual address ...
-  void* tableBaseVa = page2kva(page);
-  if (tableBaseVa == NULL) {
-    dprint("Failed to get KVA for page %08x for page\n", tableBase);
-    return NULL;
-  }
+	// which we can turn into a virtual address ...
+	void* tableBaseVa = page2kva(page);
+	if (tableBaseVa == NULL) {
+		dprint("Failed to get KVA for page %08x for page\n", tableBase);
+		return NULL;
+	}
 
-  // and finally use to get the VA pointer to the specific entry for the page.
-  pte_t* entry = tableBaseVa + (PTX(va) * sizeof(pte_t));
+	// and finally use to get the VA pointer to the specific entry for the page.
+	pte_t* entry = tableBaseVa + (PTX(va) * sizeof(pte_t));
 	return entry;
 }
 
@@ -405,16 +405,16 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-  uintptr_t curr;
-  for (curr = 0; curr < size; curr += PGSIZE) {
-    pte_t* entry = pgdir_walk(pgdir, (const void*)(va + curr), true);
-    if (entry) {
-      *entry = (pa + curr) | perm | PTE_P;
-    }
-    else {
-      panic("boot_map_region: Out of Memory");
-    }
-  }
+	uintptr_t curr;
+	for (curr = 0; curr < size; curr += PGSIZE) {
+		pte_t* entry = pgdir_walk(pgdir, (const void*)(va + curr), true);
+		if (entry) {
+			*entry = (pa + curr) | perm | PTE_P;
+		}
+		else {
+			panic("boot_map_region: Out of Memory");
+		}
+	}
 }
 
 //
@@ -431,17 +431,17 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-  pte_t* entry = pgdir_walk(pgdir, va, false);
-  if (entry == NULL || *entry == 0) {
-    return NULL;
-  }
+	pte_t* entry = pgdir_walk(pgdir, va, false);
+	if (entry == NULL || *entry == 0) {
+		return NULL;
+	}
 
-  if (pte_store != NULL) {
-    *pte_store = entry;
-  }
+	if (pte_store != NULL) {
+		*pte_store = entry;
+	}
 
 	// Even with the flags in there, it will still map to
-  // the same page.
+	// the same page.
 	return pa2page(*entry);
 }
 
@@ -463,36 +463,36 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {
-  pte_t* entry;
-  struct PageInfo* page = page_lookup(pgdir, va, &entry);
+	pte_t* entry;
+	struct PageInfo* page = page_lookup(pgdir, va, &entry);
 
-  if (page == NULL) {
-    return;
-  }
+	if (page == NULL) {
+		return;
+	}
 
-  if (entry == NULL) {
-    dprint("Found an allocated page with no PD entry! pa: %08x, va: %08x\n",
-        page2pa(page), page2kva(page));
-    return;
-  }
+	if (entry == NULL) {
+		dprint("Found an allocated page with no PD entry! pa: %08x, va: %08x\n",
+				page2pa(page), page2kva(page));
+		return;
+	}
 
-  if (*entry == 0) {
-    dprint("Found an allocated page with no PT entry! pa: %08x, va: %08x\n",
-        page2pa(page), page2kva(page));
-    return;
-  }
+	if (*entry == 0) {
+		dprint("Found an allocated page with no PT entry! pa: %08x, va: %08x\n",
+				page2pa(page), page2kva(page));
+		return;
+	}
 
-  if (page->pp_ref > 0) {
-    page_decref(page);  // Decrease ref count, AND frees if zero.
-  } else {
-    dprint("Found an allocated page with zero refs! pa: %08x, va: %08x\n",
-        page2pa(page), page2kva(page));
-  }
+	if (page->pp_ref > 0) {
+		page_decref(page); // Decrease ref count, AND frees if zero.
+	} else {
+		dprint("Found an allocated page with zero refs! pa: %08x, va: %08x\n",
+				page2pa(page), page2kva(page));
+	}
 
-  // Wipe out the page table entry.
-  *entry = 0;
+	// Wipe out the page table entry.
+	*entry = 0;
 
-  tlb_invalidate(pgdir, va);
+	tlb_invalidate(pgdir, va);
 }
 
 //
@@ -523,29 +523,29 @@ page_remove(pde_t *pgdir, void *va)
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-  // Make sure there is a page table entry for the new page.
-  pte_t* entry = pgdir_walk(pgdir, va, true);
-  if (entry == NULL) {
-    return -E_NO_MEM;
-  }
+	// Make sure there is a page table entry for the new page.
+	pte_t* entry = pgdir_walk(pgdir, va, true);
+	if (entry == NULL) {
+		return -E_NO_MEM;
+	}
 
-  // We've found the entry for existing page mapped to va. Now, we're going
-  // to increment the refs to pp, so that when we remove any existing page
-  // page mapped at va (below), if that happens to already be pp, then pp
-  // won't be added back to the free list.
-  ++(pp->pp_ref);
+	// We've found the entry for existing page mapped to va. Now, we're going
+	// to increment the refs to pp, so that when we remove any existing page
+	// page mapped at va (below), if that happens to already be pp, then pp
+	// won't be added back to the free list.
+	++(pp->pp_ref);
 
-  // Now remove any existing mapping.
-  page_remove(pgdir, va);
+	// Now remove any existing mapping.
+	page_remove(pgdir, va);
 
-  if (*entry != 0) {
-    dprint("Still have an entry which should have been removed! e: %08x\n", *entry);
-  }
+	if (*entry != 0) {
+		dprint("Still have an entry which should have been removed! e: %08x\n", *entry);
+	}
 
-  // And overwrite the PTE with the (maybe) new page.
-  *entry = page2pa(pp) | perm | PTE_P;
+	// And overwrite the PTE with the (maybe) new page.
+	*entry = page2pa(pp) | perm | PTE_P;
 
-  return 0;
+	return 0;
 }
 
 //
@@ -810,13 +810,13 @@ check_page(void)
 	// free pp0 and try again: pp0 should be used for page table
 	page_free(pp0);
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) == 0);
-  assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
-  assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
-  assert(pp1->pp_ref == 1);
-  assert(pp0->pp_ref == 1);
+	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
+	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
+	assert(pp1->pp_ref == 1);
+	assert(pp0->pp_ref == 1);
 
-  // should be able to map pp2 at PGSIZE because pp0 is already allocated for page table
-  assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W) == 0);
+	// should be able to map pp2 at PGSIZE because pp0 is already allocated for page table
+	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W) == 0);
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
 	assert(pp2->pp_ref == 1);
 
