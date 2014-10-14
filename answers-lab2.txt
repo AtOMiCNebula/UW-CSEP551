@@ -12,3 +12,39 @@ October 15th, 2014
 
 uintptr_t.  Given that we set the memory at *value to the value 10, and the MMU
 always operates on virtual addresses, mystery_t must be virtual too.
+
+
+2.  What entries (rows) in the page directory have been filled in at this point?
+    What addresses they map and where do they point?  In other words, fill out
+    this table as much as possible:
+
+Entry	Base VAddr	Points to (logically)
+1023	?		Page table for top 4MB of phys memory
+1022	?		?
+.	?		?
+.	?		?
+2	0x00800000	?
+1	0x00400000	?
+0	0x00000000	[see next question]
+
+
+3.  (From Lecture 3) We have placed the kernel and user environment in the same
+    address space.  Why will user programs not be able to read or write the
+    kernel's memory?  What specific mechanisms protect the kernel memory?
+
+
+4.  What is the maximum amount of physical memory that this operating system
+    can support?  Why?
+
+
+5.  How much space overhead is there for managing memory, if we actually had
+    the maximum amount of physical memory?  How is this overhead broken down?
+
+
+6.  Revisit the page table setup in kern/entry.S and kern/entrypgdir.c.
+    Immediately after we turn on paging, EIP is still a low number (a little
+    over 1MB).  At what point do we transition to running at an EIP above
+    KERNBASE?  What makes it possible for us to continue executing at a low EIP
+    between when we enable paging and when we begin running at an EIP above
+    KERNBASE?  Why is this transition necessary?
+
