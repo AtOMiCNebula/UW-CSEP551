@@ -360,7 +360,7 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	pde_t* dirEntry = &(pgdir[PDX(va)]);
-	if (*dirEntry == 0) {
+	if (!(*dirEntry & PTE_P)) {
 		if (!create) {
 			return NULL;
 		}
@@ -432,7 +432,7 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	pte_t* entry = pgdir_walk(pgdir, va, false);
-	if (entry == NULL || *entry == 0) {
+	if (entry == NULL || !(*entry & PTE_P)) {
 		return NULL;
 	}
 
@@ -476,7 +476,7 @@ page_remove(pde_t *pgdir, void *va)
 		return;
 	}
 
-	if (*entry == 0) {
+	if (!(*entry & PTE_P)) {
 		dprint("Found an allocated page with no PT entry! pa: %08x, va: %08x\n",
 				page2pa(page), page2kva(page));
 		return;
@@ -538,7 +538,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	// Now remove any existing mapping.
 	page_remove(pgdir, va);
 
-	if (*entry != 0) {
+	if (*entry & PTE_P) {
 		dprint("Still have an entry which should have been removed! e: %08x\n", *entry);
 	}
 
