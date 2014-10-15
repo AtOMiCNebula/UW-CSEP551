@@ -3,6 +3,26 @@ Jeff Weiner (jdweiner@cs.washington.edu)
 October 15th, 2014
 
 
+What we did to solve the exercises:
+
+It’s not clear what this question is really asking of us, but in general we
+read the lab writeup, tried to understand the relevant details of JOS, read the
+code and hints, then wrote and debugged code until it worked.  Jeff took
+exercises 1 and 5, and Myles took exercise 4, and we both collaborated on the
+six questions/answers below.
+
+
+Challenges:
+
+* Implemented a kernel monitor function 'dumptable', which displays all mapped
+  entries in a specified page table (and defaults to the page directory if no
+  table is specified).  The physical memory address is displayed, but the
+  monitor function expects a virtual address, so +KERNBASE (0xF0000000) as
+  needed.  This helped us complete Question #2, among other things.
+
+
+Questions & Answers:
+
 1.  Assuming that the following JOS kernel code is correct, what type should
     variable x have, uintptr_t or physaddr_t?
         mystery_t x;
@@ -19,26 +39,50 @@ always operates on virtual addresses, mystery_t must be virtual too.
     this table as much as possible:
 
 Entry	Base VAddr	Points to (logically)
-1023	?		Page table for top 4MB of phys memory
-1022	?		?
-.	?		?
-.	?		?
-2	0x00800000	?
-1	0x00400000	?
-0	0x00000000	[see next question]
+=====	==========	=====================
+1023	0xFFC00000	Reflection of all physical memory (252-256MB)
+1022	0xFF800000	Reflection of all physical memory (248-252MB)
+961...1021		Reflection of all physical memory (4-248MB)
+960	0xF0000000	Reflection of all physical memory (0-4MB)
+959	0xEFC00000	Kernel Stack
+957	0xEF400000	Page directory itself, inserted as a page table
+956	0xEF000000	UPAGES, the shared kernel-user data area
+(all other entries are invalid and/or not yet mapped)
 
 
 3.  (From Lecture 3) We have placed the kernel and user environment in the same
     address space.  Why will user programs not be able to read or write the
     kernel's memory?  What specific mechanisms protect the kernel memory?
 
+The page table has a flag to identify whether a given page is accessible to
+user-mode code or not (PTE_U), and without this flag on a given page for the
+virtual address in question, the MMU will issue a page fault when resolving
+that virtual address for a user-mode process.
+
 
 4.  What is the maximum amount of physical memory that this operating system
     can support?  Why?
 
+256MB.  JOS defines the virtual address range 0xF0000000-0xFFFFFFFF to be the
+view of physical memory, and this range is only large enough to hold 256MB.
+Given JOS’ self-imposed reliance on this view (most notably with the PADDR and
+KADDR macros), 256MB is the largest amount of physical memory that JOS can
+effectively utilize, despite having a much larger address space.
+
 
 5.  How much space overhead is there for managing memory, if we actually had
     the maximum amount of physical memory?  How is this overhead broken down?
+
+If we have the full 256MB of ram, then there would need to be 256MB / 4KB per
+page = 64,000 pages, hence 64k page table entries at 4B each = 256KB, plus
+another 4KB for the page directory.  However, each page is mapped twice (once
+into kernel space and once into user space), so it would actually need
+256KB*2 = 512KB for page tables + 4KB for the page directory.
+
+To be clear, however, even a small amount of physical ram can be mapped to fill
+the virtual address space, so in a pathological case, memory management could
+potentially take up 4GB / 4KB = 1M pages, requiring 4MB of ram for the page
+tables + 4Kb for the page directory.
 
 
 6.  Revisit the page table setup in kern/entry.S and kern/entrypgdir.c.
@@ -47,4 +91,12 @@ Entry	Base VAddr	Points to (logically)
     KERNBASE?  What makes it possible for us to continue executing at a low EIP
     between when we enable paging and when we begin running at an EIP above
     KERNBASE?  Why is this transition necessary?
+
+We transition to running EIP above KERNBASE at line 68 of entry.S (jmp *%eax),
+and the main reason that this functions correctly is because of the page table
+described in entrypgdir.c which is installed earlier, after which both
+addresses (low memory and high memory) of the executing code are mapped to the
+same physical memory.  This transition is necessary because that is where
+we’ve arbitrarily decided the kernel should sit, and it enables us to
+eventually unmap the low memory instance of the kernel.
 
