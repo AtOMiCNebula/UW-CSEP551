@@ -26,6 +26,7 @@ static struct Command commands[] = {
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display the current stack backtrace", mon_backtrace },
 	{ "rainbow", "Display a rainbow of colorful text", mon_rainbow },
+	{ "dumptable", "Display a given page table (defaults to pgdir)", mon_dumptable },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -118,6 +119,78 @@ mon_rainbow(int argc, char **argv, struct Trapframe *tf)
 		cprintf("-");
 	}
 	cprintf("/\n");
+
+	return 0;
+}
+
+int
+atox(char* input)
+{
+	if (input[0] != '0' || input[1] != 'x') {
+		cprintf("atox: Expected \"0x\"...\n");
+		return 0;
+	}
+	input += 2;
+
+	int val = 0;
+	while (input[0] != '\0') {
+		val *= 16;
+		if ('0' <= input[0] && input[0] <= '9') {
+			val += (input[0] - '0');
+		}
+		else if ('A' <= input[0] && input[0] <= 'F') {
+			val += (input[0] - 'A' + 10);
+		}
+		else if ('a' <= input[0] && input[0] <= 'f') {
+			val += (input[0] - 'a' + 10);
+		}
+		else {
+			cprintf("atox: Unexpected digit '%c' (0x%02x)\n", input[0], input[0]);
+			return 0;
+		}
+		input++;
+	}
+	return val;
+}
+
+int
+mon_dumptable(int argc, char **argv, struct Trapframe *tf)
+{
+	pte_t* table;
+	if (argc > 1) {
+		table = (pte_t*)atox(argv[1]);
+	}
+	else {
+		extern pde_t *kern_pgdir;
+		table = kern_pgdir;
+	}
+	cprintf("Dumping page table at 0x%08x\n", table);
+
+	int notmapped = 0;
+	size_t i;
+	for (i = 0; i < (PGSIZE / sizeof(pte_t)); i++) {
+		pte_t pt = table[i];
+		if (pt & PTE_P) {
+			cprintf("%4d:    0x%08x    PTE_P", i, PTE_ADDR(pt));
+
+			#define PRINTFLAG(flag)	if(pt&flag){cprintf(","#flag);}
+			PRINTFLAG(PTE_W);
+			PRINTFLAG(PTE_U);
+			PRINTFLAG(PTE_PWT);
+			PRINTFLAG(PTE_PCD);
+			PRINTFLAG(PTE_A);
+			PRINTFLAG(PTE_D);
+			PRINTFLAG(PTE_PS);
+			PRINTFLAG(PTE_G);
+			#undef PRINTFLAG
+
+			cprintf("\n");
+		}
+		else {
+			notmapped++;
+		}
+	}
+	cprintf("(also %d unmapped pages)\n", notmapped);
 
 	return 0;
 }
