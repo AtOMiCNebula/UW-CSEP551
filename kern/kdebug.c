@@ -203,7 +203,19 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	There's a particular stabs type used for line numbers.
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
-	// Your code here.
+	int line;
+	for (line = lline; line <= rline; line++)
+	{
+		const struct Stab stab = stabs[line];
+		if (stab.n_type == N_SLINE && stab.n_value <= addr)
+		{
+			info->eip_line = stab.n_desc;
+		}
+	}
+	if (info->eip_line == 0)
+	{
+		return -1;
+	}
 
 
 	// Search backwards from the line number for the relevant filename
