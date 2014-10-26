@@ -268,13 +268,27 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 static void
 region_alloc(struct Env *e, void *va, size_t len)
 {
-	// LAB 3: Your code here.
-	// (But only if you need it for load_icode.)
-	//
 	// Hint: It is easier to use region_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	void* va_pagestart = ROUNDDOWN(va, PGSIZE);
+	void* va_pageend = ROUNDUP((va+len-1), PGSIZE);
+
+	void* va_i;
+	for (va_i = va_pagestart; va_i < va_pageend; va_i += PGSIZE) {
+		pte_t* pte = pgdir_walk(e->env_pgdir, va_i, true);
+		if (pte == NULL) {
+			panic("region_alloc: out of memory (pgdir_walk)");
+		}
+
+		struct PageInfo* page = page_alloc(0);
+		if (page == NULL) {
+			panic("region_alloc: couldn't allocate page (page_alloc)");
+		}
+
+		*pte = page2pa(page) | PTE_U | PTE_W | PTE_P;
+	}
 }
 
 //
