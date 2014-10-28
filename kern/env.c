@@ -341,13 +341,43 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	//  You must also do something with the program's entry point,
 	//  to make sure that the environment starts executing there.
 	//  What?  (See env_run() and env_pop_tf() below.)
+	struct Elf* elf = (struct Elf*)binary;
+	if (elf->e_magic != ELF_MAGIC) {
+		panic("load_icode: invalid magic number");
+	}
 
-	// LAB 3: Your code here.
+	dprintf("load_icode:\n");
+	int i;
+	struct Proghdr* proghdrs = (struct Proghdr*)(binary + elf->e_phoff);
+	for (i = 0; i < elf->e_phnum; i++) {
+		if (proghdrs[i].p_type != ELF_PROG_LOAD) {
+			continue;
+		}
+
+		// Update cr3, so we can use our virtual addresses more easily
+		region_alloc(e, (void*)proghdrs[i].p_va, proghdrs[i].p_memsz);
+		lcr3(PADDR(e->env_pgdir));
+
+		// Zero-fill the starting page, as needed
+		void* va_pagestart = ROUNDDOWN((void*)proghdrs[i].p_va, PGSIZE);
+		dprintf("    zero-filling 0x%08x-0x%08x\n", va_pagestart, (proghdrs[i].p_va-(uint32_t)va_pagestart));
+		memset(va_pagestart, 0, (proghdrs[i].p_va-(uint32_t)va_pagestart));
+
+		// Copy the program segment into the desired region
+		dprintf("    memcpying 0x%08x-0x%08x\n", proghdrs[i].p_va, (proghdrs[i].p_va+proghdrs[i].p_filesz));
+		memcpy((void*)proghdrs[i].p_va, (void*)(binary + proghdrs[i].p_offset), proghdrs[i].p_filesz);
+
+		// Zero-fill the remaining region space
+		dprintf("    zero-filling 0x%08x-0x%08x\n", (proghdrs[i].p_va+proghdrs[i].p_filesz), ((proghdrs[i].p_va+proghdrs[i].p_filesz)+(proghdrs[i].p_memsz-proghdrs[i].p_filesz)));
+		memset((void*)(proghdrs[i].p_va+proghdrs[i].p_filesz), 0, (proghdrs[i].p_memsz-proghdrs[i].p_filesz));
+
+		// Return cr3 to the kernel page directory
+		lcr3(PADDR(kern_pgdir));
+	}
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-
-	// LAB 3: Your code here.
+	region_alloc(e, (void*)(USTACKTOP-PGSIZE), PGSIZE);
 }
 
 //
