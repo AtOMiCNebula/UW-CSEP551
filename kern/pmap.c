@@ -116,21 +116,6 @@ boot_alloc(uint32_t n)
 	return result;
 }
 
-
-static const bool doDebugPrint = false;
-
-void dprint(const char* fmt, ...) {
-	if (!doDebugPrint) {
-		return;
-	}
-
-	va_list argp;
-	va_start(argp, fmt);
-	cprintf(fmt, argp);
-	va_end(argp);
-}
-
-
 // Set up a two-level page table:
 //    kern_pgdir is its linear (virtual) address of the root
 //
@@ -318,7 +303,7 @@ page_alloc(int alloc_flags)
 		page_free_list = result->pp_link;
 		result->pp_link = NULL;
 
-		dprint("Allocated page at %08x\n", page2pa(result));
+		dprintf("Allocated page at %08x\n", page2pa(result));
 		if (alloc_flags & ALLOC_ZERO) {
 			memset(page2kva(result), 0, PGSIZE);
 		}
@@ -335,7 +320,7 @@ page_free(struct PageInfo *pp)
 {
 	assert(pp->pp_ref == 0);
 
-	dprint("Freed page at %08x\n", page2pa(pp));
+	dprintf("Freed page at %08x\n", page2pa(pp));
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
 }
@@ -400,7 +385,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	// which we can turn into a virtual address ...
 	void* tableBaseVa = page2kva(page);
 	if (tableBaseVa == NULL) {
-		dprint("Failed to get KVA for page %08x for page\n", tableBase);
+		dprintf("Failed to get KVA for page %08x for page\n", tableBase);
 		return NULL;
 	}
 
@@ -488,13 +473,13 @@ page_remove(pde_t *pgdir, void *va)
 	}
 
 	if (entry == NULL) {
-		dprint("Found an allocated page with no PD entry! pa: %08x, va: %08x\n",
+		dprintf("Found an allocated page with no PD entry! pa: %08x, va: %08x\n",
 				page2pa(page), page2kva(page));
 		return;
 	}
 
 	if (!(*entry & PTE_P)) {
-		dprint("Found an allocated page with no PT entry! pa: %08x, va: %08x\n",
+		dprintf("Found an allocated page with no PT entry! pa: %08x, va: %08x\n",
 				page2pa(page), page2kva(page));
 		return;
 	}
@@ -502,7 +487,7 @@ page_remove(pde_t *pgdir, void *va)
 	if (page->pp_ref > 0) {
 		page_decref(page); // Decrease ref count, AND frees if zero.
 	} else {
-		dprint("Found an allocated page with zero refs! pa: %08x, va: %08x\n",
+		dprintf("Found an allocated page with zero refs! pa: %08x, va: %08x\n",
 				page2pa(page), page2kva(page));
 	}
 
@@ -556,7 +541,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	page_remove(pgdir, va);
 
 	if (*entry & PTE_P) {
-		dprint("Still have an entry which should have been removed! e: %08x\n", *entry);
+		dprintf("Still have an entry which should have been removed! e: %08x\n", *entry);
 	}
 
 	// And overwrite the PTE with the (maybe) new page.
