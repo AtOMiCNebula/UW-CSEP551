@@ -277,17 +277,15 @@ region_alloc(struct Env *e, void *va, size_t len)
 
 	void* va_i;
 	for (va_i = va_pagestart; va_i < va_pageend; va_i += PGSIZE) {
-		pte_t* pte = pgdir_walk(e->env_pgdir, va_i, true);
-		if (pte == NULL) {
-			panic("region_alloc: out of memory (pgdir_walk)");
-		}
-
 		struct PageInfo* page = page_alloc(0);
 		if (page == NULL) {
-			panic("region_alloc: couldn't allocate page (page_alloc)");
+			panic("region_alloc: out of memory (page_alloc)");
 		}
 
-		*pte = page2pa(page) | PTE_U | PTE_W | PTE_P;
+		int result = page_insert(e->env_pgdir, page, va_i, (PTE_U | PTE_W));
+		if (result == -E_NO_MEM) {
+			panic("region_alloc: out of memory (page_insert)");
+		}
 	}
 }
 
