@@ -390,7 +390,14 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 void
 env_create(uint8_t *binary, size_t size, enum EnvType type)
 {
-	// LAB 3: Your code here.
+	struct Env* env;
+	int result = env_alloc(&env, 0);
+	if (result == 0) {
+		load_icode(env, binary, size);
+	}
+	else {
+		panic("env_create: %e", result);
+	}
 }
 
 //
