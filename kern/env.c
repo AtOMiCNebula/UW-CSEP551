@@ -115,8 +115,8 @@ void
 env_init(void)
 {
 	// Set up envs array
-	size_t i;
-	for (i = 0; i < NENV; i++) {
+	int i;
+	for (i = NENV-1; i >= 0; i--) {
 		assert(envs[i].env_status == ENV_FREE);
 		envs[i].env_link = env_free_list;
 		env_free_list = &envs[i];
@@ -360,20 +360,28 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 
 		// Zero-fill the starting page, as needed
 		void* va_pagestart = ROUNDDOWN((void*)proghdrs[i].p_va, PGSIZE);
-		dprintf("    zero-filling 0x%08x-0x%08x\n", va_pagestart, (proghdrs[i].p_va-(uint32_t)va_pagestart));
-		memset(va_pagestart, 0, (proghdrs[i].p_va-(uint32_t)va_pagestart));
+		if (va_pagestart != (void*)proghdrs[i].p_va) {
+			dprintf("    zero-filling 0x%08x-0x%08x\n", va_pagestart, (va_pagestart+(proghdrs[i].p_va-(uint32_t)va_pagestart)));
+			memset(va_pagestart, 0, (proghdrs[i].p_va-(uint32_t)va_pagestart));
+		}
 
 		// Copy the program segment into the desired region
-		dprintf("    memcpying 0x%08x-0x%08x\n", proghdrs[i].p_va, (proghdrs[i].p_va+proghdrs[i].p_filesz));
-		memcpy((void*)proghdrs[i].p_va, (void*)(binary + proghdrs[i].p_offset), proghdrs[i].p_filesz);
+		if (proghdrs[i].p_filesz > 0) {
+			dprintf("    memcpying 0x%08x-0x%08x\n", proghdrs[i].p_va, (proghdrs[i].p_va+proghdrs[i].p_filesz-1));
+			memcpy((void*)proghdrs[i].p_va, (void*)(binary + proghdrs[i].p_offset), proghdrs[i].p_filesz);
+		}
 
 		// Zero-fill the remaining region space
-		dprintf("    zero-filling 0x%08x-0x%08x\n", (proghdrs[i].p_va+proghdrs[i].p_filesz), ((proghdrs[i].p_va+proghdrs[i].p_filesz)+(proghdrs[i].p_memsz-proghdrs[i].p_filesz)));
-		memset((void*)(proghdrs[i].p_va+proghdrs[i].p_filesz), 0, (proghdrs[i].p_memsz-proghdrs[i].p_filesz));
+		void* va_pageend = ROUNDUP((void*)(proghdrs[i].p_va+proghdrs[i].p_memsz-1), PGSIZE);
+		if (va_pageend != (void*)(proghdrs[i].p_va+proghdrs[i].p_memsz-1)) {
+			dprintf("    zero-filling 0x%08x-0x%08x\n", (proghdrs[i].p_va+proghdrs[i].p_filesz), ((proghdrs[i].p_va+proghdrs[i].p_filesz)+(va_pageend-(void*)(proghdrs[i].p_va+proghdrs[i].p_filesz)-1)));
+			memset((void*)(proghdrs[i].p_va+proghdrs[i].p_filesz), 0, (va_pageend-(void*)(proghdrs[i].p_va+proghdrs[i].p_filesz)-1));
+		}
 
 		// Return cr3 to the kernel page directory
 		lcr3(PADDR(kern_pgdir));
 	}
+	e->env_tf.tf_eip = elf->e_entry;
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
@@ -512,8 +520,13 @@ env_run(struct Env *e)
 	//	and make sure you have set the relevant parts of
 	//	e->env_tf to sensible values.
 
-	// LAB 3: Your code here.
-
-	panic("env_run not yet implemented");
+	if (curenv != NULL && curenv->env_status == ENV_RUNNING) {
+		curenv->env_status = ENV_RUNNABLE;
+	}
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+	lcr3(PADDR(curenv->env_pgdir));
+	env_pop_tf(&curenv->env_tf);
 }
 
