@@ -58,15 +58,78 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
+extern void int0();
+extern void int1();
+extern void int2();
+extern void int3();
+extern void int4();
+extern void int5();
+extern void int6();
+extern void int7();
+extern void int8();
+extern void int9();
+extern void int10();
+extern void int11();
+extern void int12();
+extern void int13();
+extern void int14();
+extern void int15();
+extern void int16();
+extern void int17();
+extern void int18();
+extern void int19();
+extern void int20();
+extern void int21();
+extern void int22();
+extern void int23();
+extern void int24();
+extern void int25();
+extern void int26();
+extern void int27();
+extern void int28();
+extern void int29();
+extern void int30();
+extern void int31();
 
 void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
 
-	// LAB 3: Your code here.
+  SETGATE(idt[0], false, GD_KT, int0, 0);
+  SETGATE(idt[1], false, GD_KT, int1, 0);
+  SETGATE(idt[2], false, GD_KT, int2, 0);
+  SETGATE(idt[3], false, GD_KT, int3, 3);
+  SETGATE(idt[4], false, GD_KT, int4, 0);
+  SETGATE(idt[5], false, GD_KT, int5, 0);
+  SETGATE(idt[6], false, GD_KT, int6, 0);
+  SETGATE(idt[7], false, GD_KT, int7, 0);
+  SETGATE(idt[8], false, GD_KT, int8, 0);
+  SETGATE(idt[9], false, GD_KT, int9, 0);
+  SETGATE(idt[10], false, GD_KT, int10, 0);
+  SETGATE(idt[11], false, GD_KT, int11, 0);
+  SETGATE(idt[12], false, GD_KT, int12, 0);
+  SETGATE(idt[13], false, GD_KT, int13, 0);
+  SETGATE(idt[14], false, GD_KT, int14, 0);
+  SETGATE(idt[15], false, GD_KT, int15, 0);
+  SETGATE(idt[16], false, GD_KT, int16, 0);
+  SETGATE(idt[17], false, GD_KT, int17, 0);
+  SETGATE(idt[18], false, GD_KT, int18, 0);
+  SETGATE(idt[19], false, GD_KT, int19, 0);
+  SETGATE(idt[20], false, GD_KT, int20, 0);
+  SETGATE(idt[21], false, GD_KT, int21, 0);
+  SETGATE(idt[22], false, GD_KT, int22, 0);
+  SETGATE(idt[23], false, GD_KT, int23, 0);
+  SETGATE(idt[24], false, GD_KT, int24, 0);
+  SETGATE(idt[25], false, GD_KT, int25, 0);
+  SETGATE(idt[26], false, GD_KT, int26, 0);
+  SETGATE(idt[27], false, GD_KT, int27, 0);
+  SETGATE(idt[28], false, GD_KT, int28, 0);
+  SETGATE(idt[29], false, GD_KT, int29, 0);
+  SETGATE(idt[30], false, GD_KT, int30, 0);
+  SETGATE(idt[31], false, GD_KT, int31, 0);
 
-	// Per-CPU setup 
+	// Per-CPU setup
 	trap_init_percpu();
 }
 
