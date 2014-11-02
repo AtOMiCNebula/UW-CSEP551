@@ -210,6 +210,7 @@ trap_dispatch(struct Trapframe *tf)
 {
   // Handle processor exceptions.
   // LAB 3: Your code here.
+  uint32_t ret;
   switch (tf->tf_trapno) {
     case T_BRKPT:
       monitor(tf);
@@ -218,7 +219,6 @@ trap_dispatch(struct Trapframe *tf)
       page_fault_handler(tf);
       return;
     case T_SYSCALL:
-      uint32_t ret;
       ret = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
                     tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
       tf->tf_regs.reg_eax = ret;
