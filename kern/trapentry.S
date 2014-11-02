@@ -80,6 +80,8 @@ TRAPHANDLER_NOEC(int29, 29)
 TRAPHANDLER(int30, 30)
 TRAPHANDLER_NOEC(int31, 31)
 
+TRAPHANDLER_NOEC(int48, 48)
+
 /*
  * Lab 3: Your code here for _alltraps
  */

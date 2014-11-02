@@ -35,7 +35,7 @@ cprintf(const char *fmt, ...)
 	return cnt;
 }
 
-static const bool doDebugPrint = true;
+static const bool doDebugPrint = false;
 
 int
 dprintf(const char *fmt, ...)
