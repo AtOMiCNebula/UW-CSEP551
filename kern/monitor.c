@@ -59,6 +59,33 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+int safestackread(void* va)
+{
+	static struct {
+		void* base;
+		int size;
+	} regions[] = {
+		{ (void*)KSTACKTOP, KSTKSIZE },
+		{ (void*)USTACKTOP, PGSIZE },
+		{ (void*)UXSTACKTOP, PGSIZE } };
+
+	bool safe = false;
+	int i;
+	for (i = 0; i < (sizeof(regions)/sizeof(regions[0])); i++) {
+		safe = (regions[i].base-regions[i].size <= va && va < regions[i].base);
+		if (safe) {
+			break;
+		}
+	}
+
+	if (safe) {
+		return *((int*)va);
+	}
+	else {
+		return 0xBADF00D;
+	}
+}
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
@@ -69,11 +96,11 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	{
 		int next_stackbase = stackbase[0];
 		int eip = stackbase[1];
-		int arg0 = stackbase[2];
-		int arg1 = stackbase[3];
-		int arg2 = stackbase[4];
-		int arg3 = stackbase[5];
-		int arg4 = stackbase[6];
+		int arg0 = safestackread(&stackbase[2]);
+		int arg1 = safestackread(&stackbase[3]);
+		int arg2 = safestackread(&stackbase[4]);
+		int arg3 = safestackread(&stackbase[5]);
+		int arg4 = safestackread(&stackbase[6]);
 		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", stackbase, eip, arg0, arg1, arg2, arg3, arg4);
 
 		struct Eipdebuginfo info;
