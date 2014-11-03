@@ -87,14 +87,14 @@ TRAPHANDLER_NOEC(int48, 48)
  */
 
 _alltraps:
-  pushl %ds
-  pushl %es
-  pushal
+	pushl %ds
+	pushl %es
+	pushal
 
-  movl $GD_KD, %eax
-  movw %ax,%ds
-  movw %ax,%es
+	movl $GD_KD, %eax
+	movw %ax,%ds
+	movw %ax,%es
 
-  pushl %esp
-  call trap
+	pushl %esp
+	call trap
 
