@@ -160,12 +160,95 @@ cga_init(void)
 
 
 
+#define DEFAULTATTR 0x07
+enum ANSI_STATE
+{
+	STATE_PASSTHROUGH,
+	STATE_LOOK_BRACKET,
+	STATE_BEGIN,
+	STATE_PARSE_FOREGROUND,
+	STATE_PARSE_BACKGROUND,
+	STATE_LOOK_SEMICOLON
+};
+
 static void
 cga_putc(int c)
 {
-	// if no attribute given, then use black on white
+	static int currentattr = DEFAULTATTR;
+	static int parsedattr = 0;
+	static enum ANSI_STATE ansistate = STATE_PASSTHROUGH;
+	if (ansistate == STATE_PASSTHROUGH && c == 0x1B)
+	{
+		ansistate = STATE_LOOK_BRACKET;
+		parsedattr = currentattr;
+		return;
+	}
+	else if (ansistate == STATE_LOOK_BRACKET)
+	{
+		if (c == '[')
+		{
+			ansistate = STATE_BEGIN;
+			return;
+		}
+		ansistate = STATE_PASSTHROUGH;
+	}
+	else if (ansistate == STATE_BEGIN)
+	{
+		if (c == '0')
+		{
+			parsedattr = DEFAULTATTR;
+			ansistate = STATE_LOOK_SEMICOLON;
+			return;
+		}
+		else if (c == '1')
+		{
+			parsedattr |= 0x08;
+			ansistate = STATE_LOOK_SEMICOLON;
+			return;
+		}
+		else if (c == '3')
+		{
+			ansistate = STATE_PARSE_FOREGROUND;
+			return;
+		}
+		else if (c == '4')
+		{
+			ansistate = STATE_PARSE_BACKGROUND;
+			return;
+		}
+		ansistate = STATE_PASSTHROUGH;
+	}
+	else if (ansistate == STATE_PARSE_FOREGROUND || ansistate == STATE_PARSE_BACKGROUND)
+	{
+		if ('0' <= c && c <= '7')
+		{
+			static int ansitocga[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
+			int bit = ansitocga[c - '0'];
+			parsedattr &= (ansistate == STATE_PARSE_BACKGROUND ? 0x8F : 0xF8);
+			parsedattr |= (bit << (ansistate == STATE_PARSE_BACKGROUND ? 4 : 0));
+			ansistate = STATE_LOOK_SEMICOLON;
+			return;
+		}
+		ansistate = STATE_PASSTHROUGH;
+	}
+	else if (ansistate == STATE_LOOK_SEMICOLON)
+	{
+		if (c == ';')
+		{
+			ansistate = STATE_BEGIN;
+			return;
+		}
+		else if (c == 'm')
+		{
+			currentattr = parsedattr;
+			ansistate = STATE_PASSTHROUGH;
+			return;
+		}
+		ansistate = STATE_PASSTHROUGH;
+	}
+
 	if (!(c & ~0xFF))
-		c |= 0x0700;
+		c |= (currentattr << 8);
 
 	switch (c & 0xff) {
 	case '\b':
