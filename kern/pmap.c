@@ -285,10 +285,6 @@ mem_init_mp(void)
 void
 page_init(void)
 {
-	// LAB 4:
-	// Change your code to mark the physical page at MPENTRY_PADDR
-	// as in use
-
 	// The example code here marks all physical pages as free.
 	// However this is not truly the case.  What memory is free?
 	//  1) Mark physical page 0 as in use.
@@ -302,12 +298,14 @@ page_init(void)
 	//     Some of it is in use, some is free. Where is the kernel
 	//     in physical memory?  Which pages are already in use for
 	//     page tables and other data structures?
+	//  5) Mark MPENTRY_PADDR's page as in use, so that our other CPUs can
+	//     bootstrap properly.
 	size_t pageStartAt = PGNUM(IOPHYSMEM);
 	size_t pageStopAt = PGNUM(PADDR(boot_alloc(0)));
 
 	size_t i;
 	for (i = 0; i < npages; i++) {
-		bool pinned = (i == 0 || (pageStartAt <= i && i < pageStopAt));
+		bool pinned = (i == 0 || i == PGNUM(MPENTRY_PADDR) || (pageStartAt <= i && i < pageStopAt));
 
 		pages[i].pp_ref = pinned;
 		if (!pinned) {
