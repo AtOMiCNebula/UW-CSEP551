@@ -97,7 +97,22 @@ extern void int28();
 extern void int29();
 extern void int30();
 extern void int31();
-
+extern void int32();
+extern void int33();
+extern void int34();
+extern void int35();
+extern void int36();
+extern void int37();
+extern void int38();
+extern void int39();
+extern void int40();
+extern void int41();
+extern void int42();
+extern void int43();
+extern void int44();
+extern void int45();
+extern void int46();
+extern void int47();
 extern void int48();	// syscall
 
 void
@@ -137,7 +152,22 @@ trap_init(void)
 	SETGATE(idt[29], false, GD_KT, int29, 0);
 	SETGATE(idt[30], false, GD_KT, int30, 0);
 	SETGATE(idt[31], false, GD_KT, int31, 0);
-
+	SETGATE(idt[32], false, GD_KT, int32, 0);
+	SETGATE(idt[33], false, GD_KT, int33, 0);
+	SETGATE(idt[34], false, GD_KT, int34, 0);
+	SETGATE(idt[35], false, GD_KT, int35, 0);
+	SETGATE(idt[36], false, GD_KT, int36, 0);
+	SETGATE(idt[37], false, GD_KT, int37, 0);
+	SETGATE(idt[38], false, GD_KT, int38, 0);
+	SETGATE(idt[39], false, GD_KT, int39, 0);
+	SETGATE(idt[40], false, GD_KT, int40, 0);
+	SETGATE(idt[41], false, GD_KT, int41, 0);
+	SETGATE(idt[42], false, GD_KT, int42, 0);
+	SETGATE(idt[43], false, GD_KT, int43, 0);
+	SETGATE(idt[44], false, GD_KT, int44, 0);
+	SETGATE(idt[45], false, GD_KT, int45, 0);
+	SETGATE(idt[46], false, GD_KT, int46, 0);
+	SETGATE(idt[47], false, GD_KT, int47, 0);
 	SETGATE(idt[48], false, GD_KT, int48, 3);
 
 	// Per-CPU setup
@@ -250,6 +280,9 @@ trap_dispatch(struct Trapframe *tf)
 										tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
 			tf->tf_regs.reg_eax = ret;
 			return;
+		case IRQ_OFFSET+IRQ_TIMER:
+			sched_yield();
+			break;
 		default:
 			break;
 	}
