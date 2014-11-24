@@ -86,7 +86,7 @@ duppage(envid_t envid, unsigned pn)
 	// If the new page is CoW, then we need to remap our page with CoW too.
 	// Otherwise, we're just done here.
 	if (perm & PTE_COW) {
-		perm |= (pte & PTE_W);
+		perm = ((pte & (PTE_P|PTE_U|PTE_AVAIL)) | PTE_COW);
 		return sys_page_map(0, addr, 0, addr, perm);
 	} else {
 		return 0;
@@ -127,8 +127,15 @@ fork(void)
 		return 0;
 	}
 
-	// In the parent. Dupe pages, starting at UTOP and working down.
-	int page_num = UTOP / PGSIZE;
+	// Alloc a brand new page, just for the child's exception stack.
+	int r = sys_page_alloc(envid, (void*) (UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W);
+	if (r) {
+		panic("sys_page_alloc failed with: %e", r);
+	}
+
+	// In the parent.  Dupe pages, starting one page after UTOP (because we
+	// already fixed up UXSTACKTOP above) and work downward.
+	int page_num = (UTOP-PGSIZE) / PGSIZE;
 	while (--page_num >= 0) {
 		uint32_t dir_num = page_num >> (PDXSHIFT - PTXSHIFT);
 		if (!(uvpd[dir_num] & PTE_P)) {
@@ -140,12 +147,6 @@ fork(void)
 			// This page is present, should dupe it.
 			duppage(envid, page_num);
 		}
-	}
-
-	// Alloc a brand new page, just for the child's exception stack.
-	int r = sys_page_alloc(envid, (void*) (UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W);
-	if (r) {
-		panic("sys_page_alloc failed with: %e", r);
 	}
 
 	sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall);
