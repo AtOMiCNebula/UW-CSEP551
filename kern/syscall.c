@@ -229,36 +229,57 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	//   parameters for correctness.
 	//   Use the third argument to page_lookup() to
 	//   check the current permissions on the page.
+  if ((uint32_t)srcva >= UTOP)  {
+    cprintf("0.0\n");
+    return -E_INVAL;
+  }
+  if (PGOFF(srcva) != 0)  {
+    cprintf("0.1\n");
+    return -E_INVAL;
+  }
+  if ((uint32_t)dstva >= UTOP)  {
+    cprintf("0.2\n");
+    return -E_INVAL;
+  }
+  if (PGOFF(dstva) != 0) {
+    cprintf("0.3\n");
+    return -E_INVAL;
+  }
 	if ((uint32_t)srcva >= UTOP || PGOFF(srcva) != 0 ||
 			(uint32_t)dstva >= UTOP || PGOFF(dstva) != 0) {
-		return -E_INVAL;
-	}
-	int required_perm = PTE_U | PTE_P;
-	if ((perm & required_perm) != required_perm) {
-		return -E_INVAL;
-	}
-	int allowed_perm = PTE_U | PTE_P | PTE_AVAIL | PTE_W;
-	if ((perm & ~allowed_perm) != 0) {
-		return -E_INVAL;
-	}
+    cprintf("0\n");
+    return -E_INVAL;
+  }
+  int required_perm = PTE_U | PTE_P;
+  if ((perm & required_perm) != required_perm) {
+    cprintf("1");
+    return -E_INVAL;
+  }
+  int allowed_perm = PTE_U | PTE_P | PTE_AVAIL | PTE_W;
+  if ((perm & ~allowed_perm) != 0) {
+    cprintf("2");
+    return -E_INVAL;
+  }
 
-	struct Env* srcenv;
-	int success = envid2env(srcenvid, &srcenv, true);
-	if (success != 0) {
-		return success;
-	}
-	struct Env* dstenv;
-	success = envid2env(dstenvid, &dstenv, true);
-	if (success != 0) {
-		return success;
-	}
+  struct Env* srcenv;
+  int success = envid2env(srcenvid, &srcenv, true);
+  if (success != 0) {
+    return success;
+  }
+  struct Env* dstenv;
+  success = envid2env(dstenvid, &dstenv, true);
+  if (success != 0) {
+    return success;
+  }
 
-	pte_t* pte;
-	struct PageInfo* page = page_lookup(srcenv->env_pgdir, srcva, &pte);
-	if (page == NULL) {
-		return -E_INVAL;
-	}
-	if ((perm & PTE_W) && ((*pte & PTE_W) == 0)) {
+  pte_t* pte;
+  struct PageInfo* page = page_lookup(srcenv->env_pgdir, srcva, &pte);
+  if (page == NULL) {
+    cprintf("3");
+    return -E_INVAL;
+  }
+  if ((perm & PTE_W) && ((*pte & PTE_W) == 0)) {
+    cprintf("4");
 		// Cannot grant write access if page didn't already have write access.
 		return -E_INVAL;
 	}
