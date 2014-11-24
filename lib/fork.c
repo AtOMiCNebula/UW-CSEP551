@@ -67,7 +67,6 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-	// LAB 4: Your code here.
 	int pte = uvpt[pn];
 	void* addr = (void*)(pn*PGSIZE);
 
