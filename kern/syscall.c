@@ -335,7 +335,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
   int ret_val = 0;
   struct Env* env;
 
-  cprintf("0\n");
   int success = envid2env(envid, &env, false);
   if (success < 0) {
     return success;
@@ -344,17 +343,18 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
   if (!env->env_ipc_recving) {
     return -E_IPC_NOT_RECV;
   }
+  env->env_ipc_recving = 0;
 
-  cprintf("0\n");
   void* dstva = env->env_ipc_dstva;
   if ((uintptr_t)srcva < UTOP && (uintptr_t)dstva < UTOP) {
     if (PGOFF(srcva) != 0) {
-      cprintf("1\n");
+      env->env_ipc_recving = 1;
       return -E_INVAL;
     }
 
     success = sys_page_map(curenv->env_id, srcva, envid, dstva, perm);
     if (success < 0) {
+      env->env_ipc_recving = 1;
       return success;
     }
 
@@ -364,9 +364,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
   else {
     env->env_ipc_perm = 0;
   }
-  cprintf("2\n");
 
-  env->env_ipc_recving = 0;
   env->env_ipc_from = curenv->env_id;
   env->env_ipc_value = value;
   env->env_status = ENV_RUNNABLE;
