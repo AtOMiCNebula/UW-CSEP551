@@ -1,5 +1,6 @@
 // implement fork from user space
 
+#include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/lib.h>
 
@@ -24,18 +25,31 @@ pgfault(struct UTrapframe *utf)
 	//   Use the read-only page table mappings at uvpt
 	//   (see <inc/memlayout.h>).
 
-	// LAB 4: Your code here.
+	// copy-on-write page.  If not, panic.
+	if (!(err & FEC_WR) || !(uvpt[PGNUM(addr)] & PTE_COW)) {
+		panic("Cannot handle non-CoW page fault: %08x", addr);
+	}
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
-	// Hint:
-	//   You should make three system calls.
-	//   No need to explicitly delete the old page's mapping.
+	r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W);
+	if (r < 0) {
+		panic("sys_page_alloc failed with: %e", r);
+	}
 
-	// LAB 4: Your code here.
+	void* rounded_addr = ROUNDDOWN(addr, PGSIZE);
+	memmove(PFTEMP, rounded_addr, PGSIZE);
 
-	panic("pgfault not implemented");
+	r = sys_page_map(0, PFTEMP, 0, rounded_addr, PTE_P|PTE_U|PTE_W);
+	if (r < 0) {
+		panic("sys_page_map failed with: %e", r);
+	}
+
+	r = sys_page_unmap(0, PFTEMP);
+	if (r < 0) {
+		panic("sys_page_unmap failed with: %e", r);
+	}
 }
 
 //
@@ -53,10 +67,30 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
+	int pte = uvpt[pn];
+	void* addr = (void*)(pn*PGSIZE);
 
-	// LAB 4: Your code here.
-	panic("duppage not implemented");
-	return 0;
+	// Get allowed permissions out of PTE, and make sure CoW is included, if
+	// page is writeable.
+	int perm = pte & (PTE_AVAIL|PTE_P|PTE_U);
+	if (pte & (PTE_W|PTE_COW)) {
+		perm |= PTE_COW;
+	}
+
+	// Map page into new environment.
+	r = sys_page_map(0, addr, envid, addr, perm);
+	if (r < 0) {
+		panic("sys_page_map failed with: %e", r);
+	}
+
+	// If the new page is CoW, then we need to remap our page with CoW too.
+	// Otherwise, we're just done here.
+	if (perm & PTE_COW) {
+		perm = ((pte & (PTE_P|PTE_U|PTE_AVAIL)) | PTE_COW);
+		return sys_page_map(0, addr, 0, addr, perm);
+	} else {
+		return 0;
+	}
 }
 
 //
@@ -78,8 +112,52 @@ duppage(envid_t envid, unsigned pn)
 envid_t
 fork(void)
 {
-	// LAB 4: Your code here.
-	panic("fork not implemented");
+	// Set up our page fault handler appropriately.
+	set_pgfault_handler(pgfault);
+
+	// Create a child.
+	envid_t envid = sys_exofork();
+	if (envid < 0) {
+		panic("sys_exofork failed with: %e", envid);
+	}
+
+	if (envid == 0) {
+		// Remember to fix "thisenv" in the child process.
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+	// Alloc a brand new page, just for the child's exception stack.
+	int r = sys_page_alloc(envid, (void*) (UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W);
+	if (r) {
+		panic("sys_page_alloc failed with: %e", r);
+	}
+
+	// In the parent.  Dupe pages, starting one page after UTOP (because we
+	// already fixed up UXSTACKTOP above) and work downward.
+	int page_num = (UTOP-PGSIZE) / PGSIZE;
+	while (--page_num >= 0) {
+		uint32_t dir_num = page_num >> (PDXSHIFT - PTXSHIFT);
+		if (!(uvpd[dir_num] & PTE_P)) {
+			// The directory entry for these pages is not present. Move down to
+			// the next dir entry.
+			page_num -= NPTENTRIES;
+		}
+		else if (uvpt[page_num] & PTE_P) {
+			// This page is present, should dupe it.
+			duppage(envid, page_num);
+		}
+	}
+
+	sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall);
+
+	// Mark the child as runnable and return.
+	r = sys_env_set_status(envid, ENV_RUNNABLE);
+	if (r < 0) {
+		panic("sys_env_set_status failed with: %e", r);
+	}
+
+	return envid;
 }
 
 // Challenge!

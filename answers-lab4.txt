@@ -1,0 +1,79 @@
+CSE P 551: Operating Systems (Autumn 2014)
+Project 4: Preemptive Multitasking
+Jeff Weiner (jdweiner@cs.washington.edu)
+Myles Jordan (mylesj2@cs.washington.edu)
+November 25th, 2014
+
+
+What we did to solve the exercises:
+
+To enable preemptive multitasking and IEC, we first filled in missing gaps that
+enables JOS to be multi-processor aware, in CPU bring-up as well as scheduling
+and synchronization.  After that, we implemented functionality to allow forking
+environments, and page fault handlers which can provide copy-on-write
+semantics.  Lastly, we added IEC to enable forked environments to communicate.
+
+Jeff completed exercises 1-6, 13-14, these questions, and helped debug issues
+in Part B.  Myles completed Parts B and C (all other exercises).
+
+
+Challenges completed:
+
+None.
+
+
+Questions & Answers:
+
+1.  Compare kern/mpentry.S side by side with boot/boot.S.  Bearing in mind that
+    kern/mpentry.S is compiled and linked to run above KERNBASE just like
+    everything else in the kernel, what is the purpose of macro MPBOOTPHYS?
+    Why is it necessary in kern/mpentry.S but not in boot/boot.S?  In other
+    words, what could go wrong if it were omitted in kern/mpentry.S?
+    Hint:  recall the differences between the link address and the load address
+    that we have discussed in Lab 1.
+
+Like boot.S, the starting point begins at a specified address.  MPBOOTPHYS
+allows the code to be relocated to a different address (which happens in
+boot_aps()).  We must do this translation manually, because the linker isn't
+going to do it for us.  If we omit it, then the relocated code won't be able to
+correctly access gdtdesc, start32, or gdt.
+
+
+2.  It seems that using the big kernel lock guarantees that only one CPU can
+    run the kernel code at a time.  Why do we still need separate kernel stacks
+    for each CPU?  Describe a scenario in which using a shared kernel stack
+    will go wrong, even with the protection of the big kernel lock.
+
+We need multiple kernel stacks to allow multiple CPUs to attempt to switch to
+kernel mode at the same time, and to be able to run different code in kernel
+mode at the same time.  If they have to share a single stack, the second CPU
+would have to push a frame onto the shared stack, thereby clobbering whatever
+the first CPU was working on, and if the first CPU calls a function, it will
+then clobber whatever the second CPU pushed onto the stack.
+
+
+3.  In your implementation of env_run() you should have called lcr3().  Before
+    and after the call to lcr3(), your code makes references (at least it
+    should) to the variable e, the argument to env_run.  Upon loading the %cr3
+    register, the addressing context used by the MMU is instantly changed.  But
+    a virtual address (namely e) has meaning relative to a given address
+    context--the address context specifies the physical address to which the
+    virtual address maps.  Why can the pointer e be dereferenced both before
+    and after the addressing switch?
+
+All of the environments share the same kernel memory mappings (see
+env_setup_vm), so even though we load a different page directory, the entries
+for the kernel point to the same underlying kernel memory, so e is just as
+usable before as it is after.
+
+
+4.  Whenever the kernel switches from one environment to another, it must
+    ensure the old environment's registers are saved so they can be restored
+    properly later.  Why?  Where does this happen?
+
+The registers must be saved so that we can restore the environment's state to
+what it was just before we switched away from it, otherwise the program be
+aware of the context switches to properly restore what it needs to.  This state
+is saved in a location we specify (inside trap_init_percpu, thiscpu->cpu_ts),
+and is copied to the environment structure inside trap().  It is restored
+inside env_run (via env_pop_tf).

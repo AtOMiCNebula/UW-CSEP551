@@ -35,3 +35,19 @@ cprintf(const char *fmt, ...)
 	return cnt;
 }
 
+static const bool doDebugPrint = false;
+
+int
+dprintf(const char *fmt, ...)
+{
+	va_list ap;
+	int cnt = 0;
+
+	if (doDebugPrint) {
+		va_start(ap, fmt);
+		cnt = vcprintf(fmt, ap);
+		va_end(ap);
+	}
+
+	return cnt;
+}
