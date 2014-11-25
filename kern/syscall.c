@@ -332,8 +332,45 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
-	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+  int ret_val = 0;
+  struct Env* env;
+
+  cprintf("0\n");
+  int success = envid2env(envid, &env, false);
+  if (success < 0) {
+    return success;
+  }
+
+  if (!env->env_ipc_recving) {
+    return -E_IPC_NOT_RECV;
+  }
+
+  cprintf("0\n");
+  void* dstva = env->env_ipc_dstva;
+  if ((uintptr_t)srcva < UTOP && (uintptr_t)dstva < UTOP) {
+    if (PGOFF(srcva) != 0) {
+      cprintf("1\n");
+      return -E_INVAL;
+    }
+
+    success = sys_page_map(curenv->env_id, srcva, envid, dstva, perm);
+    if (success < 0) {
+      return success;
+    }
+
+    env->env_ipc_perm = perm;
+    ret_val = 1;
+  }
+  else {
+    env->env_ipc_perm = 0;
+  }
+  cprintf("2\n");
+
+  env->env_ipc_recving = 0;
+  env->env_ipc_from = curenv->env_id;
+  env->env_ipc_value = value;
+  env->env_status = ENV_RUNNABLE;
+  return ret_val;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -350,9 +387,14 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 static int
 sys_ipc_recv(void *dstva)
 {
-	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+  if ((uintptr_t)dstva < UTOP && PGOFF(dstva) != 0) {
+    return -E_INVAL;
+  }
+
+  curenv->env_ipc_dstva = dstva;
+  curenv->env_ipc_recving = 1;
+  curenv->env_status = ENV_NOT_RUNNABLE;
+  return 0;
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -382,14 +424,17 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_env_set_pgfault_upcall(a1, (void*)a2);
 		case SYS_page_alloc:
 			return sys_page_alloc(a1, (void*)a2, a3);
-		case SYS_page_map:
-			return sys_page_map(a1, (void*)a2, a3, (void*)a4, a5);
-		case SYS_page_unmap:
-			return sys_page_unmap(a1, (void*)a2);
+    case SYS_page_map:
+      return sys_page_map(a1, (void*)a2, a3, (void*)a4, a5);
+    case SYS_page_unmap:
+      return sys_page_unmap(a1, (void*)a2);
+		case SYS_ipc_try_send:
+			return sys_ipc_try_send(a1, a2, (void*)a3, a4);
+		case SYS_ipc_recv:
+			return sys_ipc_recv((void*)a1);
 		default:
 			return -E_INVAL;
 	}
 
 	panic("syscall not implemented");
 }
-
