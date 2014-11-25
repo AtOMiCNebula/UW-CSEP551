@@ -1,0 +1,24 @@
+CSE P 551: Operating Systems (Autumn 2014)
+Project 5: Spawn and Shell
+Jeff Weiner (jdweiner@cs.washington.edu)
+Myles Jordan (mylesj2@cs.washington.edu)
+December 5th, 2014
+
+
+What we did to solve the exercises:
+
+...
+
+
+Challenges completed:
+
+...
+
+
+Questions & Answers:
+
+1.  Do you have to do anything else to ensure that this I/O privilege setting
+    is saved and restored properly when you subsequently switch from one
+    environment to another?  Why?
+
+...
