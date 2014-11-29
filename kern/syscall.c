@@ -130,10 +130,22 @@ sys_env_set_status(envid_t envid, int status)
 static int
 sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 {
-	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+	struct Env* env;
+	int success = envid2env(envid, &env, true);
+	if (success) {
+		return success;
+	}
+	user_mem_assert(env, tf, sizeof(struct Trapframe), 0);
+
+	memmove(&env->env_tf, tf, sizeof(struct Trapframe));
+	env->env_tf.tf_cs = GD_UT | 3;
+	env->env_tf.tf_ds = GD_UD | 3;
+	env->env_tf.tf_es = GD_UD | 3;
+	env->env_tf.tf_ss = GD_UD | 3;
+	env->env_tf.tf_eflags |= FL_IF;
+	return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -215,6 +227,9 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	return 0;
 }
 
+static int sys_page_map_worker(struct Env *srcenv, void *srcva,
+                               struct Env *dstenv, void *dstva, int perm);
+
 // Map the page of memory at 'srcva' in srcenvid's address space
 // at 'dstva' in dstenvid's address space with permission 'perm'.
 // Perm has the same restrictions as in sys_page_alloc, except
@@ -265,6 +280,13 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return success;
 	}
 
+	return sys_page_map_worker(srcenv, srcva, dstenv, dstva, perm);
+}
+
+static int
+sys_page_map_worker(struct Env *srcenv, void *srcva,
+		    struct Env *dstenv, void *dstva, int perm)
+{
 	pte_t* pte;
 	struct PageInfo* page = page_lookup(srcenv->env_pgdir, srcva, &pte);
 	if (page == NULL) {
@@ -364,7 +386,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 			return -E_INVAL;
 		}
 
-		success = sys_page_map(curenv->env_id, srcva, envid, dstva, perm);
+		success = sys_page_map_worker(curenv, srcva, env, dstva, perm);
 		if (success < 0) {
 			env->env_ipc_recving = 1;
 			return success;
@@ -430,6 +452,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_exofork();
 		case SYS_env_set_status:
 			return sys_env_set_status(a1, a2);
+		case SYS_env_set_trapframe:
+			return sys_env_set_trapframe(a1, (void*)a2);
 		case SYS_env_set_pgfault_upcall:
 			return sys_env_set_pgfault_upcall(a1, (void*)a2);
 		case SYS_page_alloc:
