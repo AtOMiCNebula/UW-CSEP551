@@ -31,9 +31,14 @@ bc_pgfault(struct UTrapframe *utf)
 	// Allocate a page in the disk map region, read the contents
 	// of the block from the disk into that page.
 	// Hint: first round addr to page boundary.
-	//
-	// LAB 5: you code here:
-
+	r = sys_page_alloc(0, ROUNDDOWN(addr, PGSIZE), (PTE_P|PTE_U|PTE_W));
+	if (r) {
+		panic("bc_pgfault: sys_page_alloc failed: %e", r);
+	}
+	r = ide_read(blockno*BLKSECTS, ROUNDDOWN(addr, PGSIZE), BLKSECTS);
+	if (r) {
+		panic("bc_pgfault: ide_read failed: %e", r);
+	}
 }
 
 
