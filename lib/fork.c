@@ -67,13 +67,14 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-	int pte = uvpt[pn];
 	void* addr = (void*)(pn*PGSIZE);
+  int pte = uvpt[pn];
+  bool shared = (pte & PTE_SHARE) != 0;
 
 	// Get allowed permissions out of PTE, and make sure CoW is included, if
 	// page is writeable.
-	int perm = pte & (PTE_AVAIL|PTE_P|PTE_U);
-	if (pte & (PTE_W|PTE_COW)) {
+	int perm = pte & PTE_SYSCALL;
+	if (!shared && pte & (PTE_W|PTE_COW)) {
 		perm |= PTE_COW;
 	}
 
@@ -85,7 +86,7 @@ duppage(envid_t envid, unsigned pn)
 
 	// If the new page is CoW, then we need to remap our page with CoW too.
 	// Otherwise, we're just done here.
-	if (perm & PTE_COW) {
+	if (!shared && perm & PTE_COW) {
 		perm = ((pte & (PTE_P|PTE_U|PTE_AVAIL)) | PTE_COW);
 		return sys_page_map(0, addr, 0, addr, perm);
 	} else {
@@ -135,19 +136,22 @@ fork(void)
 
 	// In the parent.  Dupe pages, starting one page after UTOP (because we
 	// already fixed up UXSTACKTOP above) and work downward.
-	int page_num = (UTOP-PGSIZE) / PGSIZE;
-	while (--page_num >= 0) {
+  int page_num = PGNUM(UTOP) - 2;
+	do {
 		uint32_t dir_num = page_num >> (PDXSHIFT - PTXSHIFT);
 		if (!(uvpd[dir_num] & PTE_P)) {
 			// The directory entry for these pages is not present. Move down to
 			// the next dir entry.
 			page_num -= NPTENTRIES;
 		}
-		else if (uvpt[page_num] & PTE_P) {
-			// This page is present, should dupe it.
-			duppage(envid, page_num);
-		}
-	}
+		else {
+      if (uvpt[page_num] & PTE_P) {
+        // This page is present, should dupe it.
+        duppage(envid, page_num);
+      }
+      --page_num;
+    }
+	} while (page_num >= 0);
 
 	sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall);
 

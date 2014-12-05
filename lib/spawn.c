@@ -88,6 +88,7 @@ spawn(const char *prog, const char **argv)
 	if ((r = open(prog, O_RDONLY)) < 0)
 		return r;
 	fd = r;
+  cprintf("Read %s\n", prog);
 
 	// Read elf header
 	elf = (struct Elf*) elf_buf;
@@ -300,7 +301,29 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 static int
 copy_shared_pages(envid_t child)
 {
-	// LAB 5: Your code here.
+  cprintf("copying start\n");
+  int page_num = PGNUM(UTOP) - 1;
+  do {
+    uint32_t dir_num = page_num >> (PDXSHIFT - PTXSHIFT);
+    if (!(uvpd[dir_num] & PTE_P)) {
+      // The directory entry for these pages is not present. Move down to
+      // the next dir entry.
+      page_num -= NPTENTRIES;
+    }
+    else {
+      int perm = uvpt[page_num] & PTE_SYSCALL;
+      if (perm & PTE_P && perm & PTE_SHARE) {
+        void* addr = (void*)(page_num*PGSIZE);
+  cprintf("copying %x\n", addr);
+        int success = sys_page_map(0, addr, child, addr, perm);
+        if (success != 0) {
+          return success;
+        }
+      }
+      --page_num;
+    }
+  } while (page_num >= 0);
+
 	return 0;
 }
 
