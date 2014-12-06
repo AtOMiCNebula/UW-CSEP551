@@ -76,6 +76,7 @@ duppage(envid_t envid, unsigned pn)
 	int perm = pte & PTE_SYSCALL;
 	if (!shared && pte & (PTE_W|PTE_COW)) {
 		perm |= PTE_COW;
+    perm &= ~PTE_W;
 	}
 
 	// Map page into new environment.
@@ -122,12 +123,11 @@ fork(void)
 		panic("sys_exofork failed with: %e", envid);
 	}
 
-	if (envid == 0) {
-		// Remember to fix "thisenv" in the child process.
+  if (envid == 0) {
+    // Remember to fix "thisenv" in the child process.
 		thisenv = &envs[ENVX(sys_getenvid())];
-		return 0;
-	}
-
+    return 0;
+  }
 	// Alloc a brand new page, just for the child's exception stack.
 	int r = sys_page_alloc(envid, (void*) (UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W);
 	if (r) {
@@ -142,7 +142,7 @@ fork(void)
 		if (!(uvpd[dir_num] & PTE_P)) {
 			// The directory entry for these pages is not present. Move down to
 			// the next dir entry.
-			page_num -= NPTENTRIES;
+			page_num = (dir_num << (PDXSHIFT - PTXSHIFT)) - 1;
 		}
 		else {
       if (uvpt[page_num] & PTE_P) {
