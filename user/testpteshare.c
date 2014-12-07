@@ -12,8 +12,8 @@ umain(int argc, char **argv)
 {
 	int r;
 
-  if (argc != 0)
-    childofspawn();
+	if (argc != 0)
+		childofspawn();
 
 	if ((r = sys_page_alloc(0, VA, PTE_P|PTE_W|PTE_U|PTE_SHARE)) < 0)
 		panic("sys_page_alloc: %e", r);

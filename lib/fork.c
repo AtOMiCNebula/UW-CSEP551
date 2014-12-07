@@ -68,15 +68,15 @@ duppage(envid_t envid, unsigned pn)
 {
 	int r;
 	void* addr = (void*)(pn*PGSIZE);
-  int pte = uvpt[pn];
-  bool shared = (pte & PTE_SHARE) != 0;
+	int pte = uvpt[pn];
+	bool shared = (pte & PTE_SHARE) != 0;
 
 	// Get allowed permissions out of PTE, and make sure CoW is included, if
 	// page is writeable.
 	int perm = pte & PTE_SYSCALL;
 	if (!shared && pte & (PTE_W|PTE_COW)) {
 		perm |= PTE_COW;
-    perm &= ~PTE_W;
+		perm &= ~PTE_W;
 	}
 
 	// Map page into new environment.
@@ -123,11 +123,12 @@ fork(void)
 		panic("sys_exofork failed with: %e", envid);
 	}
 
-  if (envid == 0) {
-    // Remember to fix "thisenv" in the child process.
+	if (envid == 0) {
+		// Remember to fix "thisenv" in the child process.
 		thisenv = &envs[ENVX(sys_getenvid())];
-    return 0;
-  }
+		return 0;
+	}
+
 	// Alloc a brand new page, just for the child's exception stack.
 	int r = sys_page_alloc(envid, (void*) (UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W);
 	if (r) {
@@ -136,7 +137,7 @@ fork(void)
 
 	// In the parent.  Dupe pages, starting one page after UTOP (because we
 	// already fixed up UXSTACKTOP above) and work downward.
-  int page_num = PGNUM(UTOP) - 2;
+	int page_num = PGNUM(UTOP) - 2;
 	do {
 		uint32_t dir_num = page_num >> (PDXSHIFT - PTXSHIFT);
 		if (!(uvpd[dir_num] & PTE_P)) {
@@ -145,12 +146,12 @@ fork(void)
 			page_num = (dir_num << (PDXSHIFT - PTXSHIFT)) - 1;
 		}
 		else {
-      if (uvpt[page_num] & PTE_P) {
-        // This page is present, should dupe it.
-        duppage(envid, page_num);
-      }
-      --page_num;
-    }
+			if (uvpt[page_num] & PTE_P) {
+				// This page is present, should dupe it.
+				duppage(envid, page_num);
+			}
+			--page_num;
+		}
 	} while (page_num >= 0);
 
 	sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall);
